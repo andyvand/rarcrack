@@ -137,7 +137,7 @@ int loadstatus() {
             } else if (xmlStrcmp(node->name, (const xmlChar*)"current") == 0) {
                 if (node->children && (strlen((const char*)node->children->content) > 0)) {
                     tmp = (char *)xmlStringDecodeEntities(parserctxt, (const xmlChar*)node->children->content, XML_SUBSTITUTE_BOTH, 0, 0, 0);
-                    strcpy(password,tmp);
+                    strncpy(password,tmp, sizeof(password));
                     curr_len = strlen(password);
                     printf("INFO: Resuming cracking from password: '%s'\n",password);
                     xmlFree(tmp);
@@ -147,12 +147,12 @@ int loadstatus() {
             } else if (xmlStrcmp(node->name, (const xmlChar*)"good_password") == 0) {
                 if (node->children && (strlen((const char*)node->children->content) > 0)) {
                     tmp = (char *)xmlStringDecodeEntities(parserctxt, node->children->content, XML_SUBSTITUTE_BOTH,0,0,0);
-                    strcpy(password,tmp);
+                    strncpy(password,tmp, sizeof(password));
                     curr_len = strlen(password);
                     xmlMutexLock(finishedMutex);
                     finished = 1;
                     xmlMutexUnlock(finishedMutex);
-                    strcpy((char*) &password_good, (char*) &password);
+                    strncpy((char*) &password_good, (char*) &password, sizeof(password_good));
                     printf("GOOD: This archive was succesfully cracked\n");
                     printf("      The good password is: '%s'\n", password);
                     xmlFree(tmp);
@@ -198,7 +198,7 @@ char *nextpass() {
     //IMPORTANT: the returned string must be freed
     char *ok = malloc(sizeof(char)*(PWD_LEN+1));
     xmlMutexLock(pwdMutex);
-    strcpy(ok, password);
+    strncpy(ok, password, PWD_LEN);
     nextpass2((char*) &password, curr_len - 1);
     xmlMutexUnlock(pwdMutex);
     return ok;
@@ -223,6 +223,8 @@ void *status_thread() {
         xmlMutexUnlock(pwdMutex);
         savestatus();	//FIXME: this is wrong, when probing current password(s) is(are) not finished yet, and the program is exiting
     }
+
+    return NULL;
 }
 
 void *crack_thread() {
@@ -232,12 +234,12 @@ void *crack_thread() {
     FILE *Pipe;
     while (1) {
         current = nextpass();
-        sprintf((char*)&cmd, finalcmd, current, filename);
+        snprintf((char*)&cmd, sizeof(cmd), finalcmd, current, filename);
         Pipe = popen(cmd, "r");
         while (! feof(Pipe)) {
             fgets((char*)&ret, 200, Pipe);
             if (strcasestr(ret, "ok") != NULL) {
-                strcpy(password_good, current);
+                strncpy(password_good, current, sizeof(password_good));
                 xmlMutexLock(finishedMutex);
                 finished = 1;
                 printf("GOOD: password cracked: '%s'\n", current);
@@ -259,6 +261,8 @@ void *crack_thread() {
         xmlMutexUnlock(finishedMutex);
         free(current);
     }
+
+    return NULL;
 }
 
 void crack_start(unsigned int threads) {
@@ -322,7 +326,7 @@ void init(int argc, char **argv) {
                     sscanf(argv[++i], "%s", test);
                     for (j = 0; strcmp(TYPE[j], "") != 0; j++) {
                         if (strcmp(TYPE[j], test) == 0) {
-                            strcpy(finalcmd, CMD[j]);
+                            strncpy(finalcmd, CMD[j], sizeof(finalcmd));
                             archive_type = j;
                             break;
                         }
@@ -337,7 +341,7 @@ void init(int argc, char **argv) {
                     help = 1;
                 }
             } else {
-                strcpy((char*)&filename, argv[i]);
+                strncpy((char*)&filename, argv[i], sizeof(filename));
             }
         }
     }
@@ -346,7 +350,7 @@ void init(int argc, char **argv) {
         return;
     }
 
-    sprintf((char*)&statname,"%s.xml",(char*)&filename);
+    snprintf((char*)&statname, sizeof(statname),"%s.xml",(char*)&filename);
     totest = fopen(filename,"r");
     if (totest == NULL) {
         printf("ERROR: The specified file (%s) is not exists or \n", filename);
@@ -358,14 +362,14 @@ void init(int argc, char **argv) {
 
     if (finalcmd[0] == '\0') {
         //when we specify the file type, the programm will skip the test
-        sprintf((char*)&test, CMD_DETECT, filename);
+        snprintf((char*)&test, sizeof(test), CMD_DETECT, filename);
         totest = popen(test,"r");
         fscanf(totest,"%s",(char*)&test);
         pclose(totest);
 
         for (i = 0; strcmp(MIME[i],"") != 0; i++) {
             if (strcmp(MIME[i],test) == 0) {
-                strcpy(finalcmd,CMD[i]);
+                strncpy(finalcmd,CMD[i], sizeof(finalcmd));
                 archive_type = i;
                 break;
             }

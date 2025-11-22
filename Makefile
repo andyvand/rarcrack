@@ -3,10 +3,10 @@ PREFIX=/usr
 DOCDIR=${PREFIX}/share/doc/rarcrack
 
 all:
-	${CC} -pthread rarcrack.c `xml2-config --libs --cflags` -O3 -o rarcrack
+	${CC} -arch x86_64 -arch arm64 -pthread rarcrack.c `xml2-config --libs --cflags` -O3 -o rarcrack
 
 debug:
-	${CC} -Wextra -Werror -pthread rarcrack.c `xml2-config --libs --cflags` -O3 -o rarcrack
+	${CC} -arch x86_64 -arch arm64 -Wextra -Werror -pthread rarcrack.c `xml2-config --libs --cflags` -O3 -o rarcrack
 
 clean:
 	-rm -rf *.o *.xml rarcrack
